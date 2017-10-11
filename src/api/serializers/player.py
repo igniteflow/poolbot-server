@@ -10,6 +10,7 @@ class PlayerSerializer(serializers.ModelSerializer):
         fields = (
             'slack_id',
             'name',
+            'real_name',
             'active',
             'joined',
             'age',

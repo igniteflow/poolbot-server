@@ -1,2 +1,8 @@
 AUTHORISED_LEADERBOARD_IPS = []
 SLACK_API_TOKEN = None
+POOLBOT_AUTH_TOKEN = 'xxx'
+POOLBOT_PLAYERS_API_URL = 'https://xxx'
+
+# only required if using basic auth instead of ip whitelisting
+LEADERBOARD_BASIC_AUTH_USERNAME = 'foo'
+LEADERBOARD_BASIC_AUTH_PASSWORD = 'bar'

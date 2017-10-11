@@ -10,7 +10,7 @@ from django.conf import settings
 
 from core.models import Player
 
-from .decorators import ip_authorization
+from .decorators import ip_authorization, basic_auth
 
 LEADERBOARD_CACHE_KEY = 'players'
 LAST_UPDATED_CACHE_KEY = 'last_updated'
@@ -56,32 +56,6 @@ def api(request):
 
 
 # Utility functions
-
-def get_leaderboard(previous_leaderboard=None):
-    """
-    Format data ready for the leaderboard display, by filtering all active
-    players in the current season who have played a match.
-    """
-    # TODO all this could probably go on the Player model manager
-    players = Player.objects.filter(active=True).order_by('-season_elo')
-
-    leaderboard = []
-    for player in players:
-        # exclude players who haven't played this season
-        if (player.season_win_count + player.season_loss_count) == 0:
-            continue
-
-        leaderboard.append(
-            dict(
-                name=player.real_name,
-                season_elo=player.season_elo,
-                diff=get_diff(player, previous_leaderboard) if previous_leaderboard else 0,
-                slack_id=player.slack_id,
-            )
-        )
-
-    return add_leaderboard_positions(leaderboard)
-
 
 def get_leaderboard_from_api(previous_leaderboard=None):
     response = urlfetch.fetch(

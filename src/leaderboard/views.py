@@ -1,6 +1,8 @@
 import datetime
 
+from google.appengine.api import urlfetch
 from google.appengine.api import memcache
+
 from django.shortcuts import render
 from django.http import JsonResponse
 from core.models import Player
@@ -74,6 +76,51 @@ def get_leaderboard(previous_leaderboard=None):
         )
 
     return add_leaderboard_positions(leaderboard)
+
+
+def get_leaderboard_from_api():
+    import json
+    POOLBOT_AUTH_TOKEN = 'cbf9e2e9e63d0042f999f7f5f0ef152cfecc47a3'
+    POOLBOT_PLAYERS_API_URL = 'https://potato-poolbot.appspot.com/api/player/?active=True'
+    response = urlfetch.fetch(
+        POOLBOT_PLAYERS_API_URL,
+        headers=dict(
+            Authorization='Token {}'.format(POOLBOT_AUTH_TOKEN),
+        )
+    )
+    import ipdb; ipdb.set_trace()
+    players = json.load(response.content)
+
+    # slack_names = cache.get(SLACK_NAMES_CACHE_KEY) or {}
+    #
+    # _players = [
+    #     dict(
+    #         name=slack_names.get(player['slack_id'], player['name']),
+    #         season_elo=player['season_elo'],
+    #         diff=get_diff(player),
+    #         slack_id=player['slack_id'],
+    #     )
+    #     for player in players
+    #     if player['active'] and player['season_match_count'] > 0
+    # ]
+    #
+    # # this code is horrible spaghetti, please forgive me
+    # position = 1
+    # for idx, player in enumerate(_players):
+    #     player['id'] = idx
+    #     if idx == 0:
+    #         # first place - no previous player to compare
+    #         player['position'] = position
+    #     else:
+    #         previous_player = _players[idx-1]
+    #         if previous_player['season_elo'] == player['season_elo']:
+    #             player['position'] = '-'
+    #         else:
+    #             player['position'] = position
+    #     position += 1
+    #
+    # return _players
+
 
 
 def get_diff(player, previous_leaderboard):

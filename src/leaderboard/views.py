@@ -1,12 +1,13 @@
 import datetime
 import json
+import logging
 
-from google.appengine.api import urlfetch
 from google.appengine.api import memcache
+from google.appengine.api import urlfetch
 
-from django.shortcuts import render
-from django.http import JsonResponse
 from django.conf import settings
+from django.http import JsonResponse
+from django.shortcuts import render
 
 from core.models import Player
 
@@ -28,28 +29,35 @@ def index(request):
 def api(request):
     """Internal API hit by the leaderboard index."""
 
-    # check to see if we already have a cached list of the players
     leaderboard = memcache.get(LEADERBOARD_CACHE_KEY)
-    previous_leaderboard = memcache.get(PREVIOUS_LEADERBOARD_CACHE_KEY)
-
-    if leaderboard is None:
-        leaderboard = get_leaderboard_from_api(previous_leaderboard)
-
-        # provide a timeout for the current leaderboard
-        memcache.add(key=LEADERBOARD_CACHE_KEY, value=leaderboard, time=PLAYERS_CACHE_TIMEOUT)
-        memcache.add(key=PREVIOUS_LEADERBOARD_CACHE_KEY, value=leaderboard)
-        memcache.add(key=LAST_UPDATED_CACHE_KEY, value=datetime.datetime.now(), time=PLAYERS_CACHE_TIMEOUT)
-
     last_updated = memcache.get(LAST_UPDATED_CACHE_KEY)
+
+    has_expired = True
+    cached_for = 0
     if last_updated:
         cached_for = (datetime.datetime.now() - last_updated).seconds
-    else:
-        cached_for = 0
+        has_expired = cached_for >= PLAYERS_CACHE_TIMEOUT
 
+    if leaderboard and has_expired:
+        # keep a copy of the previous state to calculate point differences
+        memcache.add(key=PREVIOUS_LEADERBOARD_CACHE_KEY, value=leaderboard)
+
+    if has_expired:
+        # update the leaderboard with the latest data and cache the result
+        leaderboard = get_leaderboard_from_api(leaderboard)
+        memcache.add(key=LEADERBOARD_CACHE_KEY, value=leaderboard)
+
+        # keep a note of when we updated the leaderboard so that we know
+        # when to refresh the cache
+        last_updated = datetime.datetime.now()
+        memcache.add(key=LAST_UPDATED_CACHE_KEY, value=last_updated)
+
+    cached_for = (datetime.datetime.now() - last_updated).seconds
+    logging.info('cached_for: {}'.format(cached_for))
     return JsonResponse(
         dict(
             players=leaderboard,
-            secondsLeft=PLAYERS_CACHE_TIMEOUT - cached_for,
+            secondsLeft=cached_for,
             cacheLifetime=PLAYERS_CACHE_TIMEOUT
         )
     )

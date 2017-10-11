@@ -1,13 +1,15 @@
+'use strict';
+
 var PlayersTable = React.createClass({
-  getInitialState: function () {
+  getInitialState: function getInitialState() {
     return { players: [], percent: 0 };
   },
 
-  componentDidMount: function () {
+  componentDidMount: function componentDidMount() {
     this.loadData();
   },
 
-  loadData: function () {
+  loadData: function loadData() {
     $.getJSON('/leaderboard/api/', function (data) {
       this.setState({
         players: data.players
@@ -28,7 +30,7 @@ var PlayersTable = React.createClass({
     }.bind(this));
   },
 
-  render: function () {
+  render: function render() {
     var rows = [];
     this.state.players.forEach(function (player) {
       rows.push(React.createElement(PlayerRow, { player: player, key: player.id }));
@@ -159,7 +161,7 @@ var PlayersTable = React.createClass({
 });
 
 var PlayerRow = React.createClass({
-  render: function () {
+  render: function render() {
     var diffNode = '';
     if (this.props.player.diff > 0) {
       diffNode = React.createElement(
@@ -212,7 +214,7 @@ var PlayerRow = React.createClass({
 
 var ProgressBar = React.createClass({
 
-  render: function () {
+  render: function render() {
     var style = { width: this.props.percent.toString() + '%' };
     return React.createElement(
       'div',

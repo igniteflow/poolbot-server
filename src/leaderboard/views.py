@@ -1,15 +1,19 @@
 import datetime
+import json
 
 from google.appengine.api import urlfetch
 from google.appengine.api import memcache
 
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.conf import settings
+
 from core.models import Player
 
 from .decorators import ip_authorization
 
 LEADERBOARD_CACHE_KEY = 'players'
+LAST_UPDATED_CACHE_KEY = 'last_updated'
 PREVIOUS_LEADERBOARD_CACHE_KEY = 'players_previous'
 PLAYERS_CACHE_TIMEOUT = 30
 
@@ -23,12 +27,13 @@ def index(request):
 @ip_authorization
 def api(request):
     """Internal API hit by the leaderboard index."""
-    LAST_UPDATED_CACHE_KEY = 'last_updated'
+
+    # check to see if we already have a cached list of the players
     leaderboard = memcache.get(LEADERBOARD_CACHE_KEY)
-    previous_leaderboard = memcache.get(PREVIOUS_LEADERBOARD_CACHE_KEY) or leaderboard
+    previous_leaderboard = memcache.get(PREVIOUS_LEADERBOARD_CACHE_KEY)
 
     if leaderboard is None:
-        leaderboard = get_leaderboard(previous_leaderboard)
+        leaderboard = get_leaderboard_from_api(previous_leaderboard)
 
         # provide a timeout for the current leaderboard
         memcache.add(key=LEADERBOARD_CACHE_KEY, value=leaderboard, time=PLAYERS_CACHE_TIMEOUT)
@@ -78,62 +83,41 @@ def get_leaderboard(previous_leaderboard=None):
     return add_leaderboard_positions(leaderboard)
 
 
-def get_leaderboard_from_api():
-    import json
-    POOLBOT_AUTH_TOKEN = 'cbf9e2e9e63d0042f999f7f5f0ef152cfecc47a3'
-    POOLBOT_PLAYERS_API_URL = 'https://potato-poolbot.appspot.com/api/player/?active=True'
+def get_leaderboard_from_api(previous_leaderboard=None):
     response = urlfetch.fetch(
-        POOLBOT_PLAYERS_API_URL,
+        settings.POOLBOT_PLAYERS_API_URL,
         headers=dict(
-            Authorization='Token {}'.format(POOLBOT_AUTH_TOKEN),
+            Authorization='Token {}'.format(settings.POOLBOT_AUTH_TOKEN),
         )
     )
-    import ipdb; ipdb.set_trace()
-    players = json.load(response.content)
+    players = json.loads(response.content)
 
-    # slack_names = cache.get(SLACK_NAMES_CACHE_KEY) or {}
-    #
-    # _players = [
-    #     dict(
-    #         name=slack_names.get(player['slack_id'], player['name']),
-    #         season_elo=player['season_elo'],
-    #         diff=get_diff(player),
-    #         slack_id=player['slack_id'],
-    #     )
-    #     for player in players
-    #     if player['active'] and player['season_match_count'] > 0
-    # ]
-    #
-    # # this code is horrible spaghetti, please forgive me
-    # position = 1
-    # for idx, player in enumerate(_players):
-    #     player['id'] = idx
-    #     if idx == 0:
-    #         # first place - no previous player to compare
-    #         player['position'] = position
-    #     else:
-    #         previous_player = _players[idx-1]
-    #         if previous_player['season_elo'] == player['season_elo']:
-    #             player['position'] = '-'
-    #         else:
-    #             player['position'] = position
-    #     position += 1
-    #
-    # return _players
+    leaderboard = [
+        dict(
+            name=player['real_name'] or player['name'],
+            season_elo=player['season_elo'],
+            diff=get_diff(player, previous_leaderboard) if previous_leaderboard else 0,
+            slack_id=player['slack_id'],
+        )
+        for player in players
+        if player['active'] and player['season_match_count'] > 0
+    ]
+    leaderboard.sort(key=lambda x: x['season_elo'], reverse=True)
 
+    return add_leaderboard_positions(leaderboard)
 
 
 def get_diff(player, previous_leaderboard):
     """Returns num season_elo points gained/lost since the previous state."""
     player_previous_state = get_previous_player_state(player, previous_leaderboard)
     if player_previous_state:
-        return player.season_elo - player_previous_state['season_elo']
+        return player['season_elo'] - player_previous_state['season_elo']
     return 0
 
 
 def get_previous_player_state(player, previous_leaderboard):
     for player_previous_state in previous_leaderboard:
-        if player_previous_state['slack_id'] == player.slack_id:
+        if player_previous_state['slack_id'] == player['slack_id']:
             return player_previous_state
 
 

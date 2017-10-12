@@ -5,19 +5,23 @@ from decorator import decorator
 from django.http import HttpResponse
 from django.conf import settings
 
+from djangae.utils import in_testing
+
 
 @decorator
-def ip_authorization(func, *args, **kwargs):
+def ip_authorization(func, request, *args, **kwargs):
     """Limit requests to whitelised IP addresses if configured."""
+    if settings.DEBUG or in_testing():
+        return func(request, *args, **kwargs)
+
     if not settings.AUTHORISED_LEADERBOARD_IPS:
         logging.warning(
             'No AUTHORISED_LEADERBOARD_IPS defined, board is publicly viewable')
-        return func(*args, **kwargs)
+        return func(request, *args, **kwargs)
 
-    request = args[0]
     request_ip = request.META['REMOTE_ADDR']
     if request_ip in settings.AUTHORISED_LEADERBOARD_IPS:
-        return func(*args, **kwargs)
+        return func(request, *args, **kwargs)
     else:
         logging.error(
             'Leaderboard request received from unrecognised IP {} not in {}'.format(

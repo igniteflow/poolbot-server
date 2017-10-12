@@ -35,6 +35,12 @@ TEMPLATE_DEBUG = True
 
 # Application definition
 
+POOLBOT_APPS = (
+    'api',
+    'core',
+    'leaderboard',
+)
+
 INSTALLED_APPS = (
     'djangae',  # Djangae needs to come before django apps in django 1.7 and above
     'django.contrib.admin',
@@ -50,14 +56,12 @@ INSTALLED_APPS = (
     'djangae.contrib.gauth.datastore',
     'djangae.contrib.security',
     # 'djangae.contrib.uniquetool',
-
-    'api',
-    'core',
-    'leaderboard',
-
+) + POOLBOT_APPS + (
     'rest_framework',
     'rest_framework.authtoken',
 )
+
+
 
 MIDDLEWARE_CLASSES = (
     'djangae.contrib.security.middleware.AppEngineSecurityMiddleware',
